@@ -24,7 +24,7 @@ class CSVDataSource:
             default_path: Optional[str] = None,
             download_path: Optional[str] = None,
             cloud_conn: Optional[AzureCloud] = None
-        ):
+        ) -> None:
 
         self.cloud_conn = cloud_conn or AzureCloud()
         

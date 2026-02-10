@@ -62,7 +62,7 @@ class AzureCloud:
 
         try:
             blob_client = self.blob_service_client.get_blob_client(
-                self.container_name,
+                container=self.container_name,
                 blob=blob_name
             )
 
@@ -87,7 +87,7 @@ class AzureCloud:
 
         try:
             blob_client = self.blob_service_client.get_blob_client(
-                self.container_name,
+                container=self.container_name,
                 blob=blob_name
             )
 
