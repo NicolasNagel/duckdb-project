@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import duckdb
 import logging
 
 from datetime import datetime
@@ -27,7 +28,20 @@ class DataIngestor:
         self.download_path = 'src/data/temp_data'
 
     def start(self) -> None:
-        ...
+        """Inicia o Controller."""
+        start_time = datetime.now()
+        try:
+            data = self.get_cloud_data()
+            data = self.create_tables(data)
+
+            end_time = datetime.now()
+            pipeline_time = (end_time - start_time).total_seconds()
+
+            logger.info(f'Pipeline Concluída com sucesso em {pipeline_time:.2f}s')
+
+        except Exception as e:
+            logger.error(f'Erro ao rodar a Pipeline: {str(e)}')
+            raise
 
     def get_cloud_data(self) -> List[Path]:
         """
@@ -68,29 +82,41 @@ class DataIngestor:
             logger.error(f'Erro ao coletar os dados da Azure: {str(e)}')
             raise
 
-    def transform_data(self, data: List[Path]) -> Dict[str, pd.DataFrame]:
-        logger.info('Transformando arquivos...')
+    def create_tables(self, data: List[Path]) -> None:
+        """
+        Cria as tabelas em memória do DuckDB.
+
+        Args:
+            data (List[Path]): Arquivo com nomes dos diretórios salvos localmente.
+
+        Returns:
+            None: Mensagem de sucesso, se erro, mensagem de erro.
+        """
+        logger.info('Criando Tabelas...')
 
         if not data or data is None:
-            logger.warning('Transformação Cancelada. Nenhum dado foi passado.')
+            logger.warning('Inserção cancelada. Nenhum dado foi passado.')
             raise ValueError('data não pode estar vazio ou ser None.')
         
-        df_dict = {}
         try:
-            for file in data:
-                name = Path(file).stem.split('_')[-1]
-                df = pd.read_parquet(file)
-                df['inserted_at'] = datetime.now()
+            with duckdb.connect() as conn:
+                for file in data:
+                    filename = Path(file).stem.split('_')[-1]
+                    relation = conn.read_parquet(file)
+                    conn.register(filename, relation)
 
-                df_dict[name] = df
-                logger.info(f'Arquivo {name} transformado com sucesso.')
+                    logger.info(f'Tabela {filename} criada com sucesso')
 
-            logger.info(f'{len(data)} arquivos transformados.')
-            return df_dict
-        
+                    query = f"""
+                        SELECT *
+                         FROM {filename}
+                    """
+
+                    files = conn.execute(query).fetch_df()
+                    print(files)
+
+            logger.info(f'{len(data)} arquivos salvos.')
+
         except Exception as e:
-            logger.error(f'Erro ao transformar arquivos: {str(e)}')
+            logger.error(f'Erro ao criar tabelas: {str(e)}')
             raise
-
-    def save_data_into_db(self):
-        ...
